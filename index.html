@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>سلة يمن سيلو</title>
+<style>
+  :root{--p:#7C3AED;--pl:#FAF7FF;--b:#E9D5FF;--g:#25D366;--t:#1F2937;--m:#6B7280}
+  *{box-sizing:border-box}
+  body{margin:0;font-family:system-ui,-apple-system,"Segoe UI",Roboto,Tahoma,sans-serif;background:#fff;color:var(--t)}
+  header{background:var(--p);color:#fff;padding:16px;display:flex;align-items:center;justify-content:space-between}
+  header b{font-size:17px}
+  .wrap{max-width:640px;margin:0 auto;padding:14px}
+  .hint{color:var(--m);font-size:12.5px;text-align:center;margin:10px 0 16px;line-height:1.6}
+  .card{display:flex;gap:12px;border:1px solid var(--b);border-radius:16px;padding:12px;margin-bottom:10px}
+  .card img{width:76px;height:76px;border-radius:12px;object-fit:cover;background:var(--pl);flex:0 0 auto}
+  .ttl{font-size:13.5px;font-weight:700;line-height:1.4;margin:0 0 6px}
+  .chips{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:6px}
+  .chip{font-size:11px;padding:3px 8px;border-radius:20px;background:var(--pl);border:1px solid var(--b);color:var(--p)}
+  .row{display:flex;justify-content:space-between;font-size:13px;color:var(--m)}
+  .sum{border:1px solid var(--b);background:var(--pl);border-radius:16px;padding:14px;margin-top:8px}
+  .sum div{display:flex;justify-content:space-between;font-size:13.5px;margin:6px 0}
+  .sum .big{font-weight:900;color:var(--p);font-size:15px}
+  .btn{display:block;text-align:center;text-decoration:none;background:var(--g);color:#fff;font-weight:800;padding:14px;border-radius:14px;margin:16px 0 8px}
+  footer{color:var(--m);font-size:12px;text-align:center;padding:10px 0 26px;line-height:1.7}
+</style>
+</head>
+<body>
+<header><b>سلة يمن سيلو</b><span id="cnt" style="font-size:13px"></span></header>
+<div class="wrap">
+  <div class="hint" id="hint">جارٍ قراءة السلة…</div>
+  <div id="list"></div>
+  <div id="sum"></div>
+  <a class="btn" id="open" href="#" style="display:none">افتح السلة داخل تطبيق يمن سيلو</a>
+  <a class="btn" href="https://wa.me/967770518757" style="background:#7C3AED">للاستفسار على واتساب</a>
+  <footer>خدمتكم غايتنا وثقتكم هدفنا<br>يمن سيلو — YEMEN SELOO</footer>
+</div>
+<script>
+function b64bytes(s){
+  s = s.replace(/-/g,'+').replace(/_/g,'/');
+  while (s.length % 4) s += '=';
+  var bin = atob(s);
+  var out = new Uint8Array(bin.length);
+  for (var i=0;i<bin.length;i++) out[i]=bin.charCodeAt(i);
+  return out;
+}
+function decodePayload(raw){
+  var s = decodeURIComponent(raw);
+  var gz = false;
+  if (s.charAt(0) === 'z') { gz = true; s = s.substring(1); }
+  var bytes = b64bytes(s);
+  if (!gz) return Promise.resolve(new TextDecoder('utf-8').decode(bytes));
+  if (typeof DecompressionStream === 'undefined') {
+    return Promise.reject(new Error('gzip-unsupported'));
+  }
+  var stream = new Blob([bytes]).stream().pipeThrough(new DecompressionStream('gzip'));
+  return new Response(stream).text();
+}
+function render(d, rawParam){
+  var items = (d && d.it) || [];
+  if (!items.length){
+    document.getElementById('hint').textContent = 'السلة فارغة.';
+    return;
+  }
+  document.getElementById('hint').textContent = 'هذه سلة كاملة أرسلها لك يمن سيلو — كل المنتجات في رابط واحد.';
+  var total = 0, units = 0, list = document.getElementById('list');
+  items.forEach(function(it, idx){
+    var q = Number(it.q || 1), p = Number(it.p || 0);
+    total += p * q; units += q;
+    var el = document.createElement('div');
+    el.className = 'card';
+    el.innerHTML = '<img src="' + (it.u || '').replace(/"/g,'') + '" alt="" referrerpolicy="no-referrer">' +
+      '<div style="flex:1"><p class="ttl">' + (idx+1) + '. ' + (it.t || 'منتج') + '</p>' +
+      '<div class="chips">' +
+      (it.s ? '<span class="chip">المقاس: ' + it.s + '</span>' : '') +
+      (it.c ? '<span class="chip">اللون: ' + it.c + '</span>' : '') +
+      (q > 1 ? '<span class="chip">الكمية: ' + q + '</span>' : '') +
+      '</div><div class="row"><span>' + p.toFixed(2) + ' SAR</span>' +
+      (it.i ? '<span style="font-size:11px">رمز: ' + it.i + '</span>' : '') +
+      '</div></div>';
+    [list.app](https://list.app)endChild(el);
+  });
+  var sum = document.getElementById('sum');
+  sum.className = 'sum';
+  sum.innerHTML = '<div><span>عدد الأسطر</span><b>' + items.length + '</b></div>' +
+    '<div><span>عدد القطع</span><b>' + units + '</b></div>' +
+    '<div class="big"><span>إجمالي المنتجات</span><b>' + total.toFixed(2) + ' SAR</b></div>';
+  document.getElementById('cnt').textContent = units + ' قطعة';
+  var open = document.getElementById('open');
+  open.href = 'yemenseloo://cart?d=' + encodeURIComponent(rawParam);
+  open.style.display = 'block';
+}
+(function(){
+  var m = location.hash.match(/d=([^&]+)/) || location.search.match(/d=([^&]+)/);
+  if (!m){
+    document.getElementById('hint').textContent = 'رابط السلة غير مكتمل.';
+    return;
+  }
+  var rawParam = m[1];
+  decodePayload(rawParam).then(function(txt){
+    var d;
+    try { d = JSON.parse(txt); } catch(e) { d = null; }
+    if (!d){ document.getElementById('hint').textContent = 'تعذّر قراءة بيانات السلة.'; return; }
+    render(d, rawParam);
+  }).catch(function(err){
+    document.getElementById('hint').textContent = (err && [err.me](https://err.me)ssage === 'gzip-unsupported')
+      ? 'متصفحك قديم ولا يدعم فك ضغط السلة. حدّث كروم أو افتح الرابط من تطبيق يمن سيلو.'
+      : 'تعذّر فتح السلة.';
+  });
+})();
+</script>
+</body>
+</html>
