@@ -4,6 +4,8 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>سلة يمن سيلو</title>
+<!-- ⭐ مكتبة pako لفك ضغط Gzip في جميع المتصفحات -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pako/2.1.0/pako.min.js"></script>
 <style>
   :root{--p:#7C3AED;--pl:#FAF7FF;--b:#E9D5FF;--g:#25D366;--t:#1F2937;--m:#6B7280}
   *{box-sizing:border-box}
@@ -45,16 +47,19 @@ function b64bytes(s){
   return out;
 }
 function decodePayload(raw){
-  var s = decodeURIComponent(raw);
-  var gz = false;
-  if (s.charAt(0) === 'z') { gz = true; s = s.substring(1); }
-  var bytes = b64bytes(s);
-  if (!gz) return Promise.resolve(new TextDecoder('utf-8').decode(bytes));
-  if (typeof DecompressionStream === 'undefined') {
-    return Promise.reject(new Error('gzip-unsupported'));
+  try {
+    var s = decodeURIComponent(raw);
+    var gz = false;
+    if (s.charAt(0) === 'z') { gz = true; s = s.substring(1); }
+    var bytes = b64bytes(s);
+    if (!gz) return new TextDecoder('utf-8').decode(bytes);
+    
+    // ⭐ استخدام pako لفك الضغط (يدعم كل المتصفحات)
+    var inflated = pako.inflate(bytes, { to: 'string' });
+    return inflated;
+  } catch(e) {
+    throw new Error(e.message || 'decode-failed');
   }
-  var stream = new Blob([bytes]).stream().pipeThrough(new DecompressionStream('gzip'));
-  return new Response(stream).text();
 }
 function render(d, rawParam){
   var items = (d && d.it) || [];
@@ -64,6 +69,8 @@ function render(d, rawParam){
   }
   document.getElementById('hint').textContent = 'هذه سلة كاملة أرسلها لك يمن سيلو — كل المنتجات في رابط واحد.';
   var total = 0, units = 0, list = document.getElementById('list');
+  list.innerHTML = ''; // مسح أي محتوى سابق
+  
   items.forEach(function(it, idx){
     var q = Number(it.q || 1), p = Number(it.p || 0);
     total += p * q; units += q;
@@ -78,14 +85,16 @@ function render(d, rawParam){
       '</div><div class="row"><span>' + p.toFixed(2) + ' SAR</span>' +
       (it.i ? '<span style="font-size:11px">رمز: ' + it.i + '</span>' : '') +
       '</div></div>';
-    [list.app](https://list.app)endChild(el);
+    list.appendChild(el); // ⭐ تم إصلاح الخطأ هنا
   });
+  
   var sum = document.getElementById('sum');
   sum.className = 'sum';
   sum.innerHTML = '<div><span>عدد الأسطر</span><b>' + items.length + '</b></div>' +
     '<div><span>عدد القطع</span><b>' + units + '</b></div>' +
     '<div class="big"><span>إجمالي المنتجات</span><b>' + total.toFixed(2) + ' SAR</b></div>';
   document.getElementById('cnt').textContent = units + ' قطعة';
+  
   var open = document.getElementById('open');
   open.href = 'yemenseloo://cart?d=' + encodeURIComponent(rawParam);
   open.style.display = 'block';
@@ -97,16 +106,16 @@ function render(d, rawParam){
     return;
   }
   var rawParam = m[1];
-  decodePayload(rawParam).then(function(txt){
+  try {
+    var txt = decodePayload(rawParam);
     var d;
     try { d = JSON.parse(txt); } catch(e) { d = null; }
     if (!d){ document.getElementById('hint').textContent = 'تعذّر قراءة بيانات السلة.'; return; }
     render(d, rawParam);
-  }).catch(function(err){
-    document.getElementById('hint').textContent = (err && [err.me](https://err.me)ssage === 'gzip-unsupported')
-      ? 'متصفحك قديم ولا يدعم فك ضغط السلة. حدّث كروم أو افتح الرابط من تطبيق يمن سيلو.'
-      : 'تعذّر فتح السلة.';
-  });
+  } catch(err){
+    document.getElementById('hint').textContent = 'تعذّر فتح السلة. ' + (err.message === 'gzip-unsupported' ? 'متصفحك قديم.' : ''); // ⭐ تم إصلاح الخطأ هنا
+    console.error(err);
+  }
 })();
 </script>
 </body>
